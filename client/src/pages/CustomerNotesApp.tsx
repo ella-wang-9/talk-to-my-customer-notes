@@ -22,7 +22,7 @@ interface DateRange {
 }
 
 interface QAAnswer {
-  answer: string; // "Yes", "No", or "-"
+  answer: string; // "Yes", "No", "Maybe", or "-"
   evidence: string[];
 }
 
@@ -50,6 +50,7 @@ export function CustomerNotesApp() {
   const [rawNotes, setRawNotes] = useState<CustomerNote[]>([]);
   const [filteredNotes, setFilteredNotes] = useState<CustomerNote[]>([]);
   const [selectedNotes, setSelectedNotes] = useState<CustomerNote[]>([]);
+  const [showNotesCount, setShowNotesCount] = useState(false);
 
   // Step 6-7: Questions and results
   const [questionsText, setQuestionsText] = useState("");
@@ -74,6 +75,10 @@ export function CustomerNotesApp() {
       if (!response.ok) throw new Error('Failed to fetch notes');
       const data = await response.json();
       setRawNotes(data);
+      setShowNotesCount(true);
+      
+      // Show the count for a moment before continuing to filter
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Transform HTML to text
       const transformResponse = await fetch('/api/notes/transform-notes', {
@@ -181,6 +186,37 @@ export function CustomerNotesApp() {
     URL.revokeObjectURL(url);
   };
 
+  const canNavigateToStep = (stepKey: AppStep): boolean => {
+    const stepOrder: AppStep[] = ['input', 'review', 'questions', 'results'];
+    const currentIndex = stepOrder.indexOf(currentStep);
+    const targetIndex = stepOrder.indexOf(stepKey);
+    
+    // Can always go back to previous steps
+    if (targetIndex <= currentIndex) return true;
+    
+    // Can go forward only if we have the required data
+    switch (stepKey) {
+      case 'review':
+        return rawNotes.length > 0;
+      case 'questions':
+        return selectedNotes.length > 0;
+      case 'results':
+        return qaResults.length > 0;
+      default:
+        return false;
+    }
+  };
+
+  const navigateToStep = (stepKey: AppStep) => {
+    if (canNavigateToStep(stepKey)) {
+      setCurrentStep(stepKey);
+      // Reset count display when going back to input
+      if (stepKey === 'input') {
+        setShowNotesCount(false);
+      }
+    }
+  };
+
   const renderStepIndicator = () => {
     const steps = [
       { key: 'input', label: 'Input', icon: FileText },
@@ -195,19 +231,32 @@ export function CustomerNotesApp() {
           const Icon = step.icon;
           const isActive = currentStep === step.key;
           const isCompleted = steps.findIndex(s => s.key === currentStep) > index;
+          const canNavigate = canNavigateToStep(step.key as AppStep);
           
           return (
             <div key={step.key} className="flex items-center">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 
-                ${isActive ? 'border-blue-500 bg-blue-500 text-white' : 
-                  isCompleted ? 'border-green-500 bg-green-500 text-white' : 
-                  'border-gray-300 bg-white text-gray-500'}`}>
+              <button
+                onClick={() => navigateToStep(step.key as AppStep)}
+                disabled={!canNavigate}
+                className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all
+                  ${isActive ? 'border-blue-500 bg-blue-500 text-white' : 
+                    isCompleted ? 'border-green-500 bg-green-500 text-white hover:bg-green-600' : 
+                    canNavigate ? 'border-gray-300 bg-white text-gray-500 hover:border-gray-400 hover:bg-gray-50' :
+                    'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+              >
                 <Icon className="h-5 w-5" />
-              </div>
-              <span className={`ml-2 text-sm font-medium 
-                ${isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-500'}`}>
+              </button>
+              <button
+                onClick={() => navigateToStep(step.key as AppStep)}
+                disabled={!canNavigate}
+                className={`ml-2 text-sm font-medium transition-colors
+                  ${isActive ? 'text-blue-600' : 
+                    isCompleted ? 'text-green-600 hover:text-green-700' : 
+                    canNavigate ? 'text-gray-500 hover:text-gray-700' :
+                    'text-gray-400 cursor-not-allowed'}`}
+              >
                 {step.label}
-              </span>
+              </button>
               {index < steps.length - 1 && (
                 <ChevronRight className="h-5 w-5 mx-4 text-gray-400" />
               )}
@@ -279,6 +328,44 @@ export function CustomerNotesApp() {
                 />
               </div>
 
+              {showNotesCount && rawNotes.length > 0 && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-blue-900">
+                        Found {rawNotes.length} customer notes
+                      </p>
+                      <p className="text-sm text-blue-700">
+                        For "{name}" from {startMonth} to {endMonth}
+                      </p>
+                      <p className="text-sm text-blue-600 mt-1">
+                        Now filtering for relevance to your project...
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showNotesCount && rawNotes.length === 0 && (
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-yellow-600" />
+                    <div>
+                      <p className="font-medium text-yellow-900">
+                        No customer notes found
+                      </p>
+                      <p className="text-sm text-yellow-700">
+                        For "{name}" from {startMonth} to {endMonth}
+                      </p>
+                      <p className="text-sm text-yellow-600 mt-1">
+                        Try adjusting your name or date range and search again.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <Button
                 onClick={fetchNotes}
                 disabled={!name || !startMonth || !endMonth || !projectDescription || loading}
@@ -294,10 +381,20 @@ export function CustomerNotesApp() {
         {currentStep === 'review' && (
           <Card>
             <CardHeader>
-              <CardTitle>Step 2: Review Filtered Notes ({filteredNotes.length} found)</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Remove any notes you don't want to include in the Q&A analysis
-              </p>
+              <CardTitle>Step 2: Review Filtered Notes</CardTitle>
+              <div className="space-y-2">
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-gray-600">
+                    Found {rawNotes.length} total notes for "{name}" ({startMonth} to {endMonth})
+                  </span>
+                  <span className="text-blue-600 font-medium">
+                    → {filteredNotes.length} relevant to your project
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Remove any notes you don't want to include in the Q&A analysis
+                </p>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4 max-h-96 overflow-y-auto">
@@ -343,9 +440,17 @@ export function CustomerNotesApp() {
               </div>
               
               <div className="flex justify-between items-center mt-6">
-                <p className="text-sm text-gray-600">
-                  {selectedNotes.length} of {filteredNotes.length} notes selected
-                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentStep('input')}
+                  >
+                    ← Edit Input
+                  </Button>
+                  <p className="text-sm text-gray-600 self-center">
+                    {selectedNotes.length} of {filteredNotes.length} notes selected
+                  </p>
+                </div>
                 <Button
                   onClick={() => setCurrentStep('questions')}
                   disabled={selectedNotes.length === 0}
@@ -381,12 +486,20 @@ Are they interested in our new features?`}
               </div>
 
               <div className="flex gap-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentStep('review')}
-                >
-                  Back to Notes
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentStep('input')}
+                  >
+                    ← Edit Input
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentStep('review')}
+                  >
+                    ← Edit Notes
+                  </Button>
+                </div>
                 <Button
                   onClick={processQuestions}
                   disabled={!questionsText.trim() || loading}
@@ -410,6 +523,15 @@ Are they interested in our new features?`}
                   Download CSV
                 </Button>
                 <Button onClick={() => setCurrentStep('input')} variant="outline" size="sm">
+                  ← Edit Input
+                </Button>
+                <Button onClick={() => setCurrentStep('review')} variant="outline" size="sm">
+                  ← Edit Notes
+                </Button>
+                <Button onClick={() => setCurrentStep('questions')} variant="outline" size="sm">
+                  ← Edit Questions
+                </Button>
+                <Button onClick={() => setCurrentStep('input')} variant="destructive" size="sm">
                   Start Over
                 </Button>
               </div>
@@ -448,6 +570,7 @@ Are they interested in our new features?`}
                               <span className={`px-2 py-1 rounded text-sm font-medium ${
                                 answer.answer === 'Yes' ? 'bg-green-100 text-green-800' :
                                 answer.answer === 'No' ? 'bg-red-100 text-red-800' :
+                                answer.answer === 'Maybe' ? 'bg-yellow-100 text-yellow-800' :
                                 'bg-gray-100 text-gray-800'
                               }`}>
                                 {answer.answer}

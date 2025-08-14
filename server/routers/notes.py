@@ -318,9 +318,18 @@ async def answer_questions(request: QARequest) -> List[QAResult]:
                 prompt = f"""System Instruction:
 You are given a customer note's subject and its plain-text content. You will be asked ONE question about the note.
 
+EVIDENCE-BASED DECISION MAKING FRAMEWORK:
+You must base every decision on concrete evidence from the note content. Follow these principles:
+- Direct evidence over interpretation: Use exact quotes, not your understanding
+- Specific over general: Reference precise statements, not broad themes
+- Traceable sources: Every answer must be tied to specific text in the note
+- Multiple verification: Cross-check evidence quality before making decisions
+
 CRITICAL CONFIDENCE AND EVIDENCE RULES:
 - Be proactive in returning "Maybe" when you are not confident in your answer
-- For every "Yes" response, you MUST provide direct, highly relevant supporting evidence
+- For "Yes" responses: MUST provide direct, highly relevant supporting evidence
+- For "Maybe" responses: MUST provide relevant quotes that show ambiguity or partial relevance
+- For "No" responses: Provide evidence when available that contradicts or shows absence
 - Only include quotes that are clearly and directly related to the question
 - Prefer fewer, high-quality quotes over many tangential ones
 - Be very confident that each provided quote is relevant to the question
@@ -330,13 +339,14 @@ Rules:
 - Output strictly in JSON with keys: answer, evidence.
 - answer must be one of: "Yes", "No", "Maybe", or "-"
   - "Yes": You are confident the answer is yes with strong supporting evidence
-  - "No": You are confident the answer is no
-  - "Maybe": You are uncertain or the evidence is ambiguous/indirect
+  - "No": You are confident the answer is no (with contradictory evidence if available)
+  - "Maybe": You are uncertain because evidence is ambiguous, incomplete, or only partially relevant
   - "-": The question does not apply to this note
 - evidence must be an array of strings, each a direct, exact quote from the note that clearly supports the answer (no paraphrasing)
 - For "Yes" answers: evidence is REQUIRED and must be highly relevant to the specific question
+- For "Maybe" answers: evidence is REQUIRED showing the ambiguous or partially relevant content
 - For "No" answers: evidence is optional but preferred when available
-- For "Maybe" and "-" answers: evidence must be []
+- For "-" answers: evidence must be []
 - No extra commentary outside the JSON.
 
 User Input:
