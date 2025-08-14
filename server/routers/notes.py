@@ -22,7 +22,7 @@ class DateRange(BaseModel):
     endMonth: str    # YYYY-MM
 
 class NotesRequest(BaseModel):
-    name: str
+    names: List[str]  # Changed from single name to list of names
     dateRange: DateRange
     projectDescription: str
 
@@ -81,50 +81,16 @@ def transform_html_to_text(notes: List[CustomerNote]) -> List[CustomerNote]:
         result.append(CustomerNote(**note_dict))
     return result
 
-@router.post("/fetch-notes")
-async def fetch_customer_notes(request: NotesRequest) -> List[CustomerNote]:
+@router.get("/pm-names")
+async def get_pm_names() -> List[str]:
     """
-    Fetch customer notes filtered by name and date range using Databricks SQL.
+    Fetch list of Product Manager names from customer notes data.
     """
     try:
         from databricks.sdk import WorkspaceClient
         
         # Initialize Databricks client
         w = WorkspaceClient()
-        
-        # Build SQL query with date filtering (back to original approach)
-        sql_query = f"""
-        SELECT
-         wd.dim_employee_name_latest AS Name,
-         cn.id AS NoteID,
-         DATE(cn.CreatedDate) AS Date,
-         a.dim_canonical_customer_name AS Customer_Name,
-         cn.Subject__c AS Subject,
-         CONCAT_WS(' ', cn.TLDR__c, cn.Description__c) AS Note_Content
-        FROM
-         main.sfdc_bronze.customer_notes__c AS cn
-         LEFT JOIN main.metric_store.dim_customer_attributes_latest AS a
-           ON cn.account__c = a.dim_salesforce_account_id
-         LEFT JOIN main.sfdc_bronze.user u
-           ON cn.OwnerId = u.Id
-         LEFT JOIN metric_store.dim_workday_attributes_latest wd
-           ON u.Email = wd.dim_employee_email_latest
-        WHERE
-         cn.TLDR__c IS NOT NULL
-         AND isnotnull(wd.dim_employee_name_latest)
-         AND wd.dim_employee_name_latest ILIKE '%{request.name}%'
-         AND DATE(cn.CreatedDate) BETWEEN '{request.dateRange.startMonth}-01' 
-             AND LAST_DAY('{request.dateRange.endMonth}-01')
-         AND u.processDate = (
-           SELECT MAX(processDate)
-           FROM main.sfdc_bronze.user
-         )
-         AND cn.processDate = (
-           SELECT MAX(processDate)
-           FROM main.sfdc_bronze.customer_notes__c
-         )
-        ORDER BY cn.CreatedDate DESC
-        """
         
         # Get first running warehouse
         warehouses = list(w.warehouses.list())
@@ -137,33 +103,169 @@ async def fetch_customer_notes(request: NotesRequest) -> List[CustomerNote]:
         if not warehouse_id:
             raise Exception("No running warehouse available")
         
+        # First check if we have any customer notes data
+        count_query = """
+        SELECT COUNT(*) as note_count
+        FROM main.sfdc_bronze.customer_notes__c
+        WHERE TLDR__c IS NOT NULL
+        """
+        
+        print(f"Checking customer notes count: {count_query}")
+        
+        count_result = w.statement_execution.execute_statement(
+            statement=count_query,
+            warehouse_id=warehouse_id
+        )
+        
+        note_count = 0
+        if count_result.result and count_result.result.data_array:
+            note_count = count_result.result.data_array[0][0] if count_result.result.data_array[0] else 0
+        
+        print(f"Found {note_count} customer notes with TLDR")
+        
+        if note_count == 0:
+            print("No customer notes found, returning empty list")
+            return []
+        
+        # Filter for actual Product Manager names using workday attributes
+        sql_query = """
+        SELECT wd.dim_employee_name_latest AS Name
+        FROM main.metric_store.dim_workday_attributes_latest wd
+        WHERE wd.dim_estaff_latest ILIKE "%conway%" 
+        AND wd.dim_business_title_latest ILIKE "%product%" 
+        AND wd.dim_business_title_latest NOT ILIKE '%design%'
+        AND isnotnull(wd.dim_employee_name_latest)
+        ORDER BY wd.dim_employee_name_latest
+        """
+        
+        print(f"Executing PM names query: {sql_query}")
+        
         # Execute SQL query
         result = w.statement_execution.execute_statement(
             statement=sql_query,
             warehouse_id=warehouse_id
         )
         
-        # Parse results into CustomerNote objects
-        notes = []
+        # Parse results into list of names
+        names = []
         if result.result and result.result.data_array:
+            print(f"Found {len(result.result.data_array)} rows from PM names query")
             for row in result.result.data_array:
-                if len(row) >= 6 and row[1] is not None:  # Skip rows without NoteID
-                    notes.append(CustomerNote(
-                        CustomerName=row[3] or "Unknown Customer",
-                        ProductManagerName=row[0] or request.name,
-                        NoteID=str(row[1]) if row[1] else "0",
-                        Date=str(row[2]) if row[2] else "",
-                        Subject=row[4] or "",
-                        NoteContent=row[5] or "",
-                        CleanedNoteContent=""
-                    ))
+                if len(row) >= 1 and row[0] is not None:
+                    names.append(str(row[0]))
+                    print(f"Added PM name: {row[0]}")
+        else:
+            print("No result data from PM names query")
+        
+        print(f"Returning {len(names)} PM names: {names}")
+        return names
+        
+    except Exception as e:
+        print(f"Error fetching PM names: {e}")
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
+        # Return empty list on error
+        return []
+
+@router.post("/fetch-notes")
+async def fetch_customer_notes(request: NotesRequest) -> List[CustomerNote]:
+    """
+    Fetch customer notes filtered by name and date range using Databricks SQL.
+    """
+    try:
+        from databricks.sdk import WorkspaceClient
+        
+        # Initialize Databricks client
+        w = WorkspaceClient()
+        
+        # Get first running warehouse
+        warehouses = list(w.warehouses.list())
+        warehouse_id = None
+        for warehouse in warehouses:
+            if warehouse.state and warehouse.state.value == "RUNNING":
+                warehouse_id = warehouse.id
+                break
+        
+        if not warehouse_id:
+            raise Exception("No running warehouse available")
+        
+        # Execute separate queries for each PM name to ensure reliable results
+        all_notes = []
+        seen_note_ids = set()  # To avoid duplicates
+        
+        for name in request.names:
+            sql_query = f"""
+            SELECT
+             wd.dim_employee_name_latest AS Name,
+             cn.id AS NoteID,
+             DATE(cn.CreatedDate) AS Date,
+             a.dim_canonical_customer_name AS Customer_Name,
+             cn.Subject__c AS Subject,
+             CONCAT_WS(' ', cn.TLDR__c, cn.Description__c) AS Note_Content
+            FROM
+             main.sfdc_bronze.customer_notes__c AS cn
+             LEFT JOIN main.metric_store.dim_customer_attributes_latest AS a
+               ON cn.account__c = a.dim_salesforce_account_id
+             LEFT JOIN main.sfdc_bronze.user u
+               ON cn.OwnerId = u.Id
+             LEFT JOIN main.metric_store.dim_workday_attributes_latest wd
+               ON u.Email = wd.dim_employee_email_latest
+            WHERE
+             cn.TLDR__c IS NOT NULL
+             AND isnotnull(wd.dim_employee_name_latest)
+             AND wd.dim_employee_name_latest ILIKE '%{name}%'
+             AND DATE(cn.CreatedDate) BETWEEN '{request.dateRange.startMonth}-01' 
+                 AND LAST_DAY('{request.dateRange.endMonth}-01')
+             AND u.processDate = (
+               SELECT MAX(processDate)
+               FROM main.sfdc_bronze.user
+             )
+             AND cn.processDate = (
+               SELECT MAX(processDate)
+               FROM main.sfdc_bronze.customer_notes__c
+             )
+            ORDER BY cn.CreatedDate DESC
+            """
+            
+            print(f"Executing query for PM: {name}")
+            print(f"SQL: {sql_query}")
+            
+            # Execute SQL query for this PM
+            result = w.statement_execution.execute_statement(
+                statement=sql_query,
+                warehouse_id=warehouse_id
+            )
+            
+            # Parse results for this PM
+            if result.result and result.result.data_array:
+                print(f"Found {len(result.result.data_array)} notes for {name}")
+                for row in result.result.data_array:
+                    if len(row) >= 6 and row[1] is not None:  # Skip rows without NoteID
+                        note_id = str(row[1])
+                        if note_id not in seen_note_ids:  # Avoid duplicates
+                            seen_note_ids.add(note_id)
+                            all_notes.append(CustomerNote(
+                                CustomerName=row[3] or "Unknown Customer",
+                                ProductManagerName=row[0] or "Unknown PM",
+                                NoteID=note_id,
+                                Date=str(row[2]) if row[2] else "",
+                                Subject=row[4] or "",
+                                NoteContent=row[5] or "",
+                                CleanedNoteContent=""
+                            ))
+            else:
+                print(f"No notes found for {name}")
+        
+        # Sort all notes by date descending
+        all_notes.sort(key=lambda x: x.Date, reverse=True)
         
         # If no notes found, return empty list
-        if len(notes) == 0:
-            print(f"No notes found for {request.name} in date range {request.dateRange.startMonth} to {request.dateRange.endMonth}")
+        if len(all_notes) == 0:
+            names_str = ", ".join(request.names)
+            print(f"No notes found for {names_str} in date range {request.dateRange.startMonth} to {request.dateRange.endMonth}")
             return []
             
-        return notes
+        return all_notes
         
     except Exception as e:
         print(f"Error executing SQL query: {e}")

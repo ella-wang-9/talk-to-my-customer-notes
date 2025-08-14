@@ -29,6 +29,7 @@ interface QAAnswer {
 interface QAResult {
   noteId: string;  // Changed to string to handle Salesforce IDs
   customerName: string;
+  pmAuthor: string;
   date: string;
   answers: QAAnswer[];
 }
@@ -39,9 +40,12 @@ export function CustomerNotesApp() {
   // Step management
   const [currentStep, setCurrentStep] = useState<AppStep>('input');
   const [loading, setLoading] = useState(false);
+  const [progressStatus, setProgressStatus] = useState<string>('');
 
   // Step 1: Input data
-  const [name, setName] = useState("");
+  const [selectedNames, setSelectedNames] = useState<string[]>([]);
+  const [availableNames, setAvailableNames] = useState<string[]>([]);
+  const [nameSearchTerm, setNameSearchTerm] = useState("");
   const [startMonth, setStartMonth] = useState("");
   const [endMonth, setEndMonth] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -57,16 +61,35 @@ export function CustomerNotesApp() {
   const [questions, setQuestions] = useState<string[]>([]);
   const [qaResults, setQAResults] = useState<QAResult[]>([]);
 
+  // Fetch PM names on component mount
+  React.useEffect(() => {
+    const fetchPMNames = async () => {
+      try {
+        const response = await fetch('/api/notes/pm-names');
+        if (response.ok) {
+          const names = await response.json();
+          setAvailableNames(names);
+        }
+      } catch (error) {
+        console.error('Error fetching PM names:', error);
+      }
+    };
+    
+    fetchPMNames();
+  }, []);
+
   // API calls
   const fetchNotes = async () => {
     setLoading(true);
+    setProgressStatus('Fetching customer notes from database...');
+    
     try {
       // Use real data endpoint (falls back gracefully if no data)
       const response = await fetch('/api/notes/fetch-notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
+          names: selectedNames,
           dateRange: { startMonth, endMonth },
           projectDescription
         })
@@ -77,10 +100,19 @@ export function CustomerNotesApp() {
       setRawNotes(data);
       setShowNotesCount(true);
       
+      if (data.length === 0) {
+        setProgressStatus('');
+        setLoading(false);
+        return;
+      }
+      
+      setProgressStatus(`Found ${data.length} notes. Processing content...`);
+      
       // Show the count for a moment before continuing to filter
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Transform HTML to text
+      setProgressStatus(`Converting HTML content to text...`);
       const transformResponse = await fetch('/api/notes/transform-notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,18 +122,40 @@ export function CustomerNotesApp() {
       if (!transformResponse.ok) throw new Error('Failed to transform notes');
       const transformedData = await transformResponse.json();
       
-      // Filter for relevance
-      const filterResponse = await fetch('/api/notes/filter-relevance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notes: transformedData,
-          projectDescription
-        })
-      });
+      // Filter for relevance with progress tracking
+      setProgressStatus(`Analyzing relevance: processing note 1 of ${transformedData.length}...`);
       
-      if (!filterResponse.ok) throw new Error('Failed to filter notes');
-      const filteredData = await filterResponse.json();
+      const filteredData = [];
+      for (let i = 0; i < transformedData.length; i++) {
+        const note = transformedData[i];
+        setProgressStatus(`Analyzing relevance: processing note ${i + 1} of ${transformedData.length}...`);
+        
+        try {
+          const filterResponse = await fetch('/api/notes/filter-relevance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              notes: [note], // Process one note at a time
+              projectDescription
+            })
+          });
+          
+          if (filterResponse.ok) {
+            const result = await filterResponse.json();
+            if (result.length > 0) {
+              filteredData.push(result[0]);
+            }
+          }
+        } catch (noteError) {
+          console.warn(`Error processing note ${i + 1}:`, noteError);
+          // Continue with other notes even if one fails
+        }
+        
+        // Small delay to allow UI updates
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      setProgressStatus('Finalizing results...');
       setFilteredNotes(filteredData);
       setSelectedNotes(filteredData);
       setCurrentStep('review');
@@ -111,6 +165,7 @@ export function CustomerNotesApp() {
       alert('Error processing notes. Please try again.');
     } finally {
       setLoading(false);
+      setProgressStatus('');
     }
   };
 
@@ -125,18 +180,63 @@ export function CustomerNotesApp() {
     setQuestions(questionList);
     setLoading(true);
     
+    const totalOperations = selectedNotes.length * questionList.length;
+    let currentOperation = 0;
+    
     try {
-      const response = await fetch('/api/notes/answer-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notes: selectedNotes,
-          questions: questionList
-        })
-      });
+      setProgressStatus(`Processing Q&A: 0 of ${totalOperations} question-note pairs...`);
       
-      if (!response.ok) throw new Error('Failed to process questions');
-      const results = await response.json();
+      const results = [];
+      
+      for (let noteIndex = 0; noteIndex < selectedNotes.length; noteIndex++) {
+        const note = selectedNotes[noteIndex];
+        const answers = [];
+        
+        for (let questionIndex = 0; questionIndex < questionList.length; questionIndex++) {
+          const question = questionList[questionIndex];
+          currentOperation++;
+          
+          setProgressStatus(`Processing Q&A: ${currentOperation} of ${totalOperations} (Note ${noteIndex + 1}/${selectedNotes.length}, Question ${questionIndex + 1}/${questionList.length})...`);
+          
+          try {
+            const response = await fetch('/api/notes/answer-questions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                notes: [note],
+                questions: [question]
+              })
+            });
+            
+            if (response.ok) {
+              const result = await response.json();
+              if (result.length > 0 && result[0].answers.length > 0) {
+                answers.push(result[0].answers[0]);
+              } else {
+                answers.push({ answer: '-', evidence: [] });
+              }
+            } else {
+              answers.push({ answer: '-', evidence: [] });
+            }
+          } catch (questionError) {
+            console.warn(`Error processing question ${questionIndex + 1} for note ${noteIndex + 1}:`, questionError);
+            answers.push({ answer: '-', evidence: [] });
+          }
+          
+          // Small delay to allow UI updates
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        
+        results.push({
+          noteId: note.NoteID,
+          customerName: note.CustomerName,
+          pmAuthor: note.ProductManagerName,
+          date: note.Date,
+          answers: answers
+        });
+      }
+      
+      setProgressStatus('Finalizing Q&A results...');
       setQAResults(results);
       setCurrentStep('results');
       
@@ -145,6 +245,7 @@ export function CustomerNotesApp() {
       alert('Error processing questions. Please try again.');
     } finally {
       setLoading(false);
+      setProgressStatus('');
     }
   };
 
@@ -184,13 +285,13 @@ export function CustomerNotesApp() {
   const generateCSV = () => {
     if (qaResults.length === 0) return;
     
-    const headers = ['Customer Name', 'Date'];
+    const headers = ['Customer Name', 'PM Author', 'Date'];
     questions.forEach((question, i) => {
       headers.push(question, `Evidence: ${question}`);
     });
     
     const rows = qaResults.map(result => {
-      const row = [result.customerName, result.date];
+      const row = [result.customerName, result.pmAuthor, result.date];
       result.answers.forEach(answer => {
         row.push(answer.answer);
         row.push(answer.evidence.map(e => `"${e}"`).join(' | '));
@@ -214,13 +315,13 @@ export function CustomerNotesApp() {
   const copyToGoogleSheets = async () => {
     if (qaResults.length === 0) return;
     
-    const headers = ['Customer Name', 'Date'];
+    const headers = ['Customer Name', 'PM Author', 'Date'];
     questions.forEach((question, i) => {
       headers.push(question, `Evidence: ${question}`);
     });
     
     const rows = qaResults.map(result => {
-      const row = [result.customerName, result.date];
+      const row = [result.customerName, result.pmAuthor, result.date];
       result.answers.forEach(answer => {
         row.push(answer.answer);
         row.push(answer.evidence.join(' | '));
@@ -302,6 +403,7 @@ export function CustomerNotesApp() {
         <thead>
             <tr>
                 <th>Customer Name</th>
+                <th>PM Author</th>
                 <th>Date</th>`;
     
     questions.forEach((question, i) => {
@@ -319,6 +421,7 @@ export function CustomerNotesApp() {
       htmlContent += `
             <tr>
                 <td>${result.customerName}</td>
+                <td>${result.pmAuthor}</td>
                 <td>${result.date}</td>`;
       
       result.answers.forEach((answer, i) => {
@@ -380,9 +483,10 @@ export function CustomerNotesApp() {
   const navigateToStep = (stepKey: AppStep) => {
     if (canNavigateToStep(stepKey)) {
       setCurrentStep(stepKey);
-      // Reset count display when going back to input
+      // Reset progress and count display when going back to input
       if (stepKey === 'input') {
         setShowNotesCount(false);
+        setProgressStatus('');
       }
     }
   };
@@ -460,12 +564,74 @@ export function CustomerNotesApp() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <label className="block text-sm font-medium mb-2">Your Name</label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your name"
-                />
+                <label className="block text-sm font-medium mb-2">Product Managers ({selectedNames.length} selected)</label>
+                <div className="space-y-2">
+                  {/* Selected names display */}
+                  {selectedNames.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedNames.map((name, index) => (
+                        <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-sm">
+                          {name}
+                          <button
+                            onClick={() => setSelectedNames(prev => prev.filter(n => n !== name))}
+                            className="hover:text-blue-600"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Searchable input for names */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={nameSearchTerm}
+                      onChange={(e) => setNameSearchTerm(e.target.value)}
+                      placeholder="Type to search Product Managers..."
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    
+                    {/* Dropdown suggestions */}
+                    {nameSearchTerm && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {availableNames
+                          .filter(name => 
+                            !selectedNames.includes(name) && 
+                            name.toLowerCase().includes(nameSearchTerm.toLowerCase())
+                          )
+                          .slice(0, 10) // Limit to 10 suggestions
+                          .map((name, index) => (
+                            <div
+                              key={index}
+                              onClick={() => {
+                                setSelectedNames(prev => [...prev, name]);
+                                setNameSearchTerm(""); // Clear search after selection
+                              }}
+                              className="p-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            >
+                              {name}
+                            </div>
+                          ))
+                        }
+                        {availableNames
+                          .filter(name => 
+                            !selectedNames.includes(name) && 
+                            name.toLowerCase().includes(nameSearchTerm.toLowerCase())
+                          ).length === 0 && (
+                          <div className="p-2 text-gray-500 text-sm">
+                            No matching Product Managers found
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {selectedNames.length === 0 && (
+                    <p className="text-sm text-red-600">At least one Product Manager must be selected</p>
+                  )}
+                </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -507,7 +673,7 @@ export function CustomerNotesApp() {
                         Found {rawNotes.length} customer notes
                       </p>
                       <p className="text-sm text-blue-700">
-                        For "{name}" from {startMonth} to {endMonth}
+                        For {selectedNames.join(', ')} from {startMonth} to {endMonth}
                       </p>
                       <p className="text-sm text-blue-600 mt-1">
                         Now filtering for relevance to your project...
@@ -526,7 +692,7 @@ export function CustomerNotesApp() {
                         No customer notes found
                       </p>
                       <p className="text-sm text-yellow-700">
-                        For "{name}" from {startMonth} to {endMonth}
+                        For {selectedNames.join(', ')} from {startMonth} to {endMonth}
                       </p>
                       <p className="text-sm text-yellow-600 mt-1">
                         Try adjusting your name or date range and search again.
@@ -538,10 +704,15 @@ export function CustomerNotesApp() {
 
               <Button
                 onClick={fetchNotes}
-                disabled={!name || !startMonth || !endMonth || !projectDescription || loading}
+                disabled={selectedNames.length === 0 || !startMonth || !endMonth || !projectDescription || loading}
                 className="w-full"
               >
-                {loading ? <Skeleton className="h-4 w-20" /> : 'Fetch & Process Notes'}
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span className="text-sm">{progressStatus || 'Processing...'}</span>
+                  </div>
+                ) : 'Fetch & Process Notes'}
               </Button>
             </CardContent>
           </Card>
@@ -555,7 +726,7 @@ export function CustomerNotesApp() {
               <div className="space-y-2">
                 <div className="flex items-center gap-4 text-sm">
                   <span className="text-gray-600">
-                    Found {rawNotes.length} total notes for "{name}" ({startMonth} to {endMonth})
+                    Found {rawNotes.length} total notes for {selectedNames.join(', ')} ({startMonth} to {endMonth})
                   </span>
                   <span className="text-blue-600 font-medium">
                     → {filteredNotes.length} relevant to your project
@@ -675,7 +846,12 @@ Are they interested in our new features?`}
                   disabled={!questionsText.trim() || loading}
                   className="flex-1"
                 >
-                  {loading ? <Skeleton className="h-4 w-32" /> : 'Process Questions'}
+                  {loading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span className="text-sm">{progressStatus || 'Processing...'}</span>
+                    </div>
+                  ) : 'Process Questions'}
                 </Button>
               </div>
             </CardContent>
@@ -767,6 +943,11 @@ Are they interested in our new features?`}
                       </th>
                       <th className="border border-gray-300 px-4 py-2 text-left sticky top-0 bg-gray-50">
                         <div className="font-medium text-sm break-words">
+                          PM Author
+                        </div>
+                      </th>
+                      <th className="border border-gray-300 px-4 py-2 text-left sticky top-0 bg-gray-50">
+                        <div className="font-medium text-sm break-words">
                           Date
                         </div>
                       </th>
@@ -790,6 +971,7 @@ Are they interested in our new features?`}
                     {qaResults.map((result, rowIndex) => (
                       <tr key={result.noteId} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         <td className="border border-gray-300 px-4 py-2">{result.customerName}</td>
+                        <td className="border border-gray-300 px-4 py-2">{result.pmAuthor || 'Unknown'}</td>
                         <td className="border border-gray-300 px-4 py-2">{result.date}</td>
                         {result.answers.map((answer, i) => (
                           <React.Fragment key={i}>
