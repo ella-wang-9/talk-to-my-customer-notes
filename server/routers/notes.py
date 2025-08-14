@@ -332,7 +332,7 @@ Customer note content:
                 
                 # Call Foundation Model Serving with proper format
                 response = w.serving_endpoints.query(
-                    name="databricks-claude-sonnet-3-7",
+                    name="databricks-claude-3-7-sonnet",
                     messages=messages,
                     max_tokens=10,
                     temperature=0.0
@@ -421,7 +421,7 @@ Expected Output (JSON only):
                     
                     # Call Foundation Model Serving with proper format
                     response = w.serving_endpoints.query(
-                        name="databricks-claude-sonnet-3-7",
+                        name="databricks-claude-3-7-sonnet",
                         messages=messages,
                         max_tokens=500,
                         temperature=0.0
