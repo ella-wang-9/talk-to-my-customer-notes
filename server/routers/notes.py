@@ -158,42 +158,10 @@ async def fetch_customer_notes(request: NotesRequest) -> List[CustomerNote]:
                         CleanedNoteContent=""
                     ))
         
-        # If no notes found, return sample data for testing
+        # If no notes found, return empty list
         if len(notes) == 0:
             print(f"No notes found for {request.name} in date range {request.dateRange.startMonth} to {request.dateRange.endMonth}")
-            print("Returning sample data for testing workflow")
-            
-            # Return sample data that matches the request
-            sample_notes = [
-                CustomerNote(
-                    CustomerName="Nike",
-                    ProductManagerName=request.name,
-                    NoteID="sample_001",
-                    Date=f"{request.dateRange.startMonth}-15",
-                    Subject="Q2 Planning Discussion with Nike",
-                    NoteContent="<p><b>TLDR:</b> Nike expressed strong interest in our <em>pilot program</em> for Q2. They want to start with analytics dashboard.</p><h2>Meeting Details</h2><p>Nike is looking to improve their customer insights through our platform. Key discussion points:</p><ul><li>Pilot program duration: 6 weeks</li><li>Budget: $50K approved</li><li>Timeline: Start May 2025</li><li>Primary contact: Sarah Johnson</li></ul><div>They are particularly interested in real-time analytics and custom dashboards. Pricing was discussed and is within their budget.</div>",
-                    CleanedNoteContent=""
-                ),
-                CustomerNote(
-                    CustomerName="Adidas", 
-                    ProductManagerName=request.name,
-                    NoteID="sample_002",
-                    Date=f"{request.dateRange.startMonth}-28",
-                    Subject="Technical Requirements Review",
-                    NoteContent="<p><b>TLDR:</b> Adidas needs better <strong>analytics integration</strong> with their existing systems. Current solution has performance issues.</p><h3>Current Pain Points</h3><p>Adidas reported several challenges:</p><ul><li>Dashboard response times > 10 seconds</li><li>Missing integration with SAP</li><li>Limited customization options</li><li>No real-time data updates</li></ul><p>However, they mentioned that <strong>pricing is a major concern</strong> and they need to stay within a tight budget for this fiscal year.</p>",
-                    CleanedNoteContent=""
-                ),
-                CustomerNote(
-                    CustomerName="Under Armour",
-                    ProductManagerName=request.name, 
-                    NoteID="sample_003",
-                    Date=f"{request.dateRange.endMonth}-10",
-                    Subject="Implementation Planning Session",
-                    NoteContent="<p><b>TLDR:</b> Under Armour ready to proceed with full implementation. They want to start with a <em>pilot program</em> first.</p><p>Great meeting with Under Armour team. They're excited about our platform capabilities and want to move forward quickly. Key outcomes:</p><ul><li>Pilot program approved: 4 weeks starting June</li><li>Full team buy-in achieved</li><li>Technical requirements documented</li><li>No pricing concerns - budget approved</li></ul><p>Next steps: Send contract for legal review and schedule kickoff meeting.</p>",
-                    CleanedNoteContent=""
-                )
-            ]
-            return sample_notes
+            return []
             
         return notes
         
