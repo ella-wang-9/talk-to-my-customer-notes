@@ -7,36 +7,10 @@ import type { NotesRequest } from '../models/NotesRequest';
 import type { QARequest } from '../models/QARequest';
 import type { QAResult } from '../models/QAResult';
 import type { RelevanceFilter } from '../models/RelevanceFilter';
-import type { UserInfo } from '../models/UserInfo';
-import type { UserWorkspaceInfo } from '../models/UserWorkspaceInfo';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
-export class ApiService {
-    /**
-     * Get Current User
-     * Get current user information from Databricks.
-     * @returns UserInfo Successful Response
-     * @throws ApiError
-     */
-    public static getCurrentUserApiUserMeGet(): CancelablePromise<UserInfo> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/user/me',
-        });
-    }
-    /**
-     * Get User Workspace Info
-     * Get user information along with workspace details.
-     * @returns UserWorkspaceInfo Successful Response
-     * @throws ApiError
-     */
-    public static getUserWorkspaceInfoApiUserMeWorkspaceGet(): CancelablePromise<UserWorkspaceInfo> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/user/me/workspace',
-        });
-    }
+export class NotesService {
     /**
      * Fetch Customer Notes
      * Fetch customer notes filtered by name and date range using Databricks SQL.
@@ -149,18 +123,6 @@ export class ApiService {
             errors: {
                 422: `Validation Error`,
             },
-        });
-    }
-    /**
-     * Debug Original Sql
-     * Test the exact original SQL query provided by the user.
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public static debugOriginalSqlApiDebugDebugOriginalSqlGet(): CancelablePromise<any> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/debug/debug-original-sql',
         });
     }
 }

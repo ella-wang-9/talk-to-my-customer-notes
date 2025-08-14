@@ -5,17 +5,17 @@
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
-export class DefaultService {
+export class DebugService {
     /**
-     * Health
-     * Health check endpoint.
+     * Debug Original Sql
+     * Test the exact original SQL query provided by the user.
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static healthHealthGet(): CancelablePromise<any> {
+    public static debugOriginalSqlApiDebugDebugOriginalSqlGet(): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/health',
+            url: '/api/debug/debug-original-sql',
         });
     }
 }
