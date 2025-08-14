@@ -380,12 +380,27 @@ async def answer_questions(request: QARequest) -> List[QAResult]:
             for question in request.questions:
                 # Gemini prompt for Q&A with strict JSON output
                 prompt = f"""System Instruction:
-You are given a customer note's subject and its plain-text content. You will be asked ONE yes/no question about the note.
+You are given a customer note's subject and its plain-text content. You will be asked ONE question about the note.
+
+CRITICAL CONFIDENCE AND EVIDENCE RULES:
+- Be proactive in returning "Maybe" when you are not confident in your answer
+- For every "Yes" response, you MUST provide direct, highly relevant supporting evidence
+- Only include quotes that are clearly and directly related to the question
+- Prefer fewer, high-quality quotes over many tangential ones
+- Be very confident that each provided quote is relevant to the question
+- Prioritize precision over quantity in evidence selection
+
 Rules:
 - Output strictly in JSON with keys: answer, evidence.
-- answer must be one of: "Yes", "No", or "-" (where "-" means the question does not apply to this note).
-- evidence must be an array of strings, each a direct, exact quote from the note that supports the answer (no paraphrasing).
-- If answer is "-", evidence must be [].
+- answer must be one of: "Yes", "No", "Maybe", or "-"
+  - "Yes": You are confident the answer is yes with strong supporting evidence
+  - "No": You are confident the answer is no
+  - "Maybe": You are uncertain or the evidence is ambiguous/indirect
+  - "-": The question does not apply to this note
+- evidence must be an array of strings, each a direct, exact quote from the note that clearly supports the answer (no paraphrasing)
+- For "Yes" answers: evidence is REQUIRED and must be highly relevant to the specific question
+- For "No" answers: evidence is optional but preferred when available
+- For "Maybe" and "-" answers: evidence must be []
 - No extra commentary outside the JSON.
 
 User Input:
@@ -400,7 +415,7 @@ Question:
 
 Expected Output (JSON only):
 {{
-  "answer": "Yes" | "No" | "-",
+  "answer": "Yes" | "No" | "Maybe" | "-",
   "evidence": [
     "Exact quote 1 from note",
     "Exact quote 2 from note"
@@ -450,6 +465,8 @@ Expected Output (JSON only):
                                 answer = "Yes"
                             elif "No" in response_text:
                                 answer = "No"
+                            elif "Maybe" in response_text:
+                                answer = "Maybe"
                             
                             answers.append(QAAnswer(
                                 answer=answer,
