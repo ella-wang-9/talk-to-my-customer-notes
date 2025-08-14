@@ -172,38 +172,6 @@ async def fetch_customer_notes(request: NotesRequest) -> List[CustomerNote]:
         # Return empty list on error - frontend will handle gracefully
         return []
 
-@router.post("/fetch-notes-sample")
-async def fetch_customer_notes_sample(request: NotesRequest) -> List[CustomerNote]:
-    """Sample data for testing the complete workflow."""
-    return [
-        CustomerNote(
-            CustomerName="Nike",
-            ProductManagerName=request.name,
-            NoteID=1001,
-            Date="2024-01-15",
-            Subject="Q1 Planning Discussion",
-            NoteContent="<p><b>TLDR:</b> Customer expressed strong interest in our <em>pilot program</em>. Pricing discussion went well.</p><h2>Meeting Details</h2><p>Nike is looking to implement our analytics solution for their Q2 launch. They specifically mentioned the need for better customer insights and are willing to start with a pilot.</p><div>Key Points:<ul><li>Pilot duration: 4 weeks</li><li>Budget approved</li><li>Timeline: Start in Q2</li></ul></div>",
-            CleanedNoteContent=""
-        ),
-        CustomerNote(
-            CustomerName="Adidas",
-            ProductManagerName=request.name,
-            NoteID=1002,
-            Date="2024-01-20", 
-            Subject="Product Requirements Discussion",
-            NoteContent="<p><b>TLDR:</b> Customer needs better analytics dashboard. Current solution not meeting expectations.</p><h3>Current Issues</h3><p>Adidas reported several issues with their current analytics setup:</p><ul><li>Dashboard loading times are too slow</li><li>Missing key metrics they need</li><li>Integration with their existing tools is problematic</li></ul><p>They are interested in our solution but <strong>pricing is a concern</strong>.</p><script>alert('test')</script>",
-            CleanedNoteContent=""
-        ),
-        CustomerNote(
-            CustomerName="Under Armour",
-            ProductManagerName=request.name,
-            NoteID=1003,
-            Date="2024-02-05",
-            Subject="Follow-up Meeting",
-            NoteContent="<p><b>TLDR:</b> Customer ready to proceed with implementation. No pricing concerns.</p><p>Under Armour is excited about our platform capabilities. They want to move forward quickly with full implementation.</p><p>Next steps: Send contract for review.</p>",
-            CleanedNoteContent=""
-        )
-    ]
 
 @router.get("/test-sql")
 async def test_sql():
