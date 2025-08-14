@@ -554,6 +554,27 @@ export function CustomerNotesApp() {
           </p>
         </div>
 
+        {/* Tutorial Overview */}
+        <Card className="mb-6 bg-blue-50 border-blue-200">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-bold mt-0.5">
+                ?
+              </div>
+              <div>
+                <h3 className="font-semibold text-blue-900 mb-2">How it works</h3>
+                <div className="text-sm text-blue-800 space-y-1">
+                  <p><strong>1. Select:</strong> Choose Product Managers and date range</p>
+                  <p><strong>2. Review:</strong> We'll find and filter relevant customer notes</p>
+                  <p><strong>3. Ask:</strong> Write yes/no questions about your notes</p>
+                  <p><strong>4. Analyze:</strong> AI analyzes each note with evidence-based answers</p>
+                  <p className="text-xs text-blue-600 mt-2">💡 Your results are not saved - export them when done!</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {renderStepIndicator()}
 
         {/* Step 1: Input Collection */}
