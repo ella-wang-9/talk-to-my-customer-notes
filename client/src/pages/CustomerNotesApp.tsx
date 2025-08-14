@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, Search, Download, Trash2, ChevronRight, HelpCircle } from "lucide-react";
+import { FileText, Search, Download, Trash2, ChevronRight, HelpCircle, Copy, AlertTriangle } from "lucide-react";
 
 // Data Models (matching backend)
 interface CustomerNote {
@@ -207,6 +207,151 @@ export function CustomerNotesApp() {
     const a = document.createElement('a');
     a.href = url;
     a.download = 'customer-notes-analysis.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyToGoogleSheets = async () => {
+    if (qaResults.length === 0) return;
+    
+    const headers = ['Customer Name', 'Date'];
+    questions.forEach((question, i) => {
+      headers.push(question, `Evidence: ${question}`);
+    });
+    
+    const rows = qaResults.map(result => {
+      const row = [result.customerName, result.date];
+      result.answers.forEach(answer => {
+        row.push(answer.answer);
+        row.push(answer.evidence.join(' | '));
+      });
+      return row;
+    });
+    
+    const allRows = [headers, ...rows];
+    const tsvContent = allRows
+      .map(row => row.join('\t'))
+      .join('\n');
+    
+    try {
+      await navigator.clipboard.writeText(tsvContent);
+      alert('Table copied to clipboard! You can now paste it into Google Sheets.');
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      alert('Failed to copy to clipboard. Please try the CSV download instead.');
+    }
+  };
+
+  const downloadHTML = () => {
+    if (qaResults.length === 0) return;
+    
+    const summaryStats = calculateSummaryStats();
+    
+    let htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Customer Notes Q&A Results</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .summary { background-color: #dbeafe; padding: 16px; border-radius: 8px; margin-bottom: 24px; }
+        .summary h3 { margin-top: 0; }
+        .question-summary { border-left: 4px solid #3b82f6; padding-left: 12px; margin-bottom: 12px; }
+        .stats { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
+        .stat-yes { color: #166534; }
+        .stat-no { color: #991b1b; }
+        .stat-maybe { color: #a16207; }
+        .stat-na { color: #6b7280; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+        th { background-color: #f9fafb; font-weight: bold; }
+        .answer-yes { background-color: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; }
+        .answer-no { background-color: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 4px; }
+        .answer-maybe { background-color: #fef3c7; color: #a16207; padding: 4px 8px; border-radius: 4px; }
+        .answer-na { background-color: #f3f4f6; color: #6b7280; padding: 4px 8px; border-radius: 4px; }
+        .evidence { font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Customer Notes Q&A Results</h1>
+    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+    
+    <div class="summary">
+        <h3>Results Summary (${qaResults.length} notes analyzed):</h3>`;
+    
+    questions.forEach((question, i) => {
+      const stats = summaryStats[i];
+      if (stats) {
+        htmlContent += `
+        <div class="question-summary">
+            <div style="font-weight: bold; margin-bottom: 4px;">${question}</div>
+            <div class="stats">
+                <span class="stat-yes"><strong>Yes:</strong> ${stats.counts.Yes} (${stats.percentages.Yes}%)</span>
+                <span class="stat-no"><strong>No:</strong> ${stats.counts.No} (${stats.percentages.No}%)</span>
+                <span class="stat-maybe"><strong>Maybe:</strong> ${stats.counts.Maybe} (${stats.percentages.Maybe}%)</span>
+                <span class="stat-na"><strong>N/A:</strong> ${stats.counts['-']} (${stats.percentages['-']}%)</span>
+            </div>
+        </div>`;
+      }
+    });
+    
+    htmlContent += `
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Customer Name</th>
+                <th>Date</th>`;
+    
+    questions.forEach((question, i) => {
+      htmlContent += `
+                <th>${question}</th>
+                <th>Evidence: ${question}</th>`;
+    });
+    
+    htmlContent += `
+            </tr>
+        </thead>
+        <tbody>`;
+    
+    qaResults.forEach((result, rowIndex) => {
+      htmlContent += `
+            <tr>
+                <td>${result.customerName}</td>
+                <td>${result.date}</td>`;
+      
+      result.answers.forEach((answer, i) => {
+        const answerClass = answer.answer === 'Yes' ? 'answer-yes' :
+                           answer.answer === 'No' ? 'answer-no' :
+                           answer.answer === 'Maybe' ? 'answer-maybe' : 'answer-na';
+        
+        htmlContent += `
+                <td><span class="${answerClass}">${answer.answer}</span></td>
+                <td class="evidence">`;
+        
+        answer.evidence.forEach(evidence => {
+          htmlContent += `• "${evidence}"<br>`;
+        });
+        
+        htmlContent += `</td>`;
+      });
+      
+      htmlContent += `
+            </tr>`;
+    });
+    
+    htmlContent += `
+        </tbody>
+    </table>
+</body>
+</html>`;
+    
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'customer-notes-analysis.html';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -542,10 +687,18 @@ Are they interested in our new features?`}
           <Card>
             <CardHeader>
               <CardTitle>Step 4: Results</CardTitle>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button onClick={generateCSV} variant="outline" size="sm">
                   <Download className="h-4 w-4 mr-2" />
                   Download CSV
+                </Button>
+                <Button onClick={copyToGoogleSheets} variant="outline" size="sm">
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy for Google Sheets
+                </Button>
+                <Button onClick={downloadHTML} variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download HTML
                 </Button>
                 <Button onClick={() => setCurrentStep('input')} variant="outline" size="sm">
                   ← Edit Input
@@ -589,6 +742,17 @@ Are they interested in our new features?`}
                       </div>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Save Reminder */}
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+                  <div className="text-sm text-yellow-800">
+                    <strong>Important:</strong> Your results are not automatically saved. 
+                    Please use the download buttons above to save your analysis before leaving this page.
+                  </div>
                 </div>
               </div>
 
