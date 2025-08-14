@@ -641,6 +641,7 @@ export function CustomerNotesApp() {
                     type="month"
                     value={startMonth}
                     onChange={(e) => setStartMonth(e.target.value)}
+                    className="text-lg p-3 h-12"
                   />
                 </div>
                 <div>
@@ -649,6 +650,7 @@ export function CustomerNotesApp() {
                     type="month"
                     value={endMonth}
                     onChange={(e) => setEndMonth(e.target.value)}
+                    className="text-lg p-3 h-12"
                   />
                 </div>
               </div>
