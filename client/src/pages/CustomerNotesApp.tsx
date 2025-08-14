@@ -761,7 +761,7 @@ export function CustomerNotesApp() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto">
                 {filteredNotes.map((note) => (
                   <div
                     key={note.NoteID}
@@ -955,7 +955,7 @@ Are they interested in our new features?`}
                 </div>
               </div>
 
-              <div className="overflow-x-auto max-h-[800px]">
+              <div className="overflow-x-auto max-h-[75vh]">
                 <table className="w-full border-collapse border border-gray-300">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-gray-50">
