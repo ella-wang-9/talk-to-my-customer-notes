@@ -959,7 +959,7 @@ Are they interested in our new features?`}
                 <table className="w-full border-collapse border border-gray-300">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-gray-50">
-                      <th className="border border-gray-300 px-4 py-2 text-left sticky top-0 bg-gray-50">
+                      <th className="border border-gray-300 px-2 py-2 text-left w-32 max-w-32 sticky top-0 bg-gray-50">
                         <div className="font-medium text-sm break-words">
                           Customer Name
                         </div>
@@ -993,7 +993,9 @@ Are they interested in our new features?`}
                   <tbody>
                     {qaResults.map((result, rowIndex) => (
                       <tr key={result.noteId} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="border border-gray-300 px-4 py-2">{result.customerName}</td>
+                        <td className="border border-gray-300 px-2 py-2 w-32 max-w-32">
+                          <div className="text-sm break-words">{result.customerName}</div>
+                        </td>
                         <td className="border border-gray-300 px-4 py-2">{result.pmAuthor || 'Unknown'}</td>
                         <td className="border border-gray-300 px-4 py-2">{result.date}</td>
                         {result.answers.map((answer, i) => (
