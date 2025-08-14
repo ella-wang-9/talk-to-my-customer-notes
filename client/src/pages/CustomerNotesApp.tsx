@@ -156,6 +156,31 @@ export function CustomerNotesApp() {
     );
   };
 
+  const calculateSummaryStats = () => {
+    if (qaResults.length === 0 || questions.length === 0) return [];
+    
+    return questions.map((_, questionIndex) => {
+      const answers = qaResults.map(result => result.answers[questionIndex]?.answer || '-');
+      const total = answers.length;
+      
+      const counts = {
+        Yes: answers.filter(a => a === 'Yes').length,
+        No: answers.filter(a => a === 'No').length,
+        Maybe: answers.filter(a => a === 'Maybe').length,
+        '-': answers.filter(a => a === '-').length
+      };
+      
+      const percentages = {
+        Yes: total > 0 ? ((counts.Yes / total) * 100).toFixed(1) : '0.0',
+        No: total > 0 ? ((counts.No / total) * 100).toFixed(1) : '0.0',
+        Maybe: total > 0 ? ((counts.Maybe / total) * 100).toFixed(1) : '0.0',
+        '-': total > 0 ? ((counts['-'] / total) * 100).toFixed(1) : '0.0'
+      };
+      
+      return { counts, percentages, total };
+    });
+  };
+
   const generateCSV = () => {
     if (qaResults.length === 0) return;
     
@@ -537,20 +562,58 @@ Are they interested in our new features?`}
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              {/* Summary Statistics */}
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-semibold mb-3">Results Summary ({qaResults.length} notes analyzed):</h4>
+                <div className="space-y-3">
+                  {questions.map((question, i) => {
+                    const stats = calculateSummaryStats()[i];
+                    if (!stats) return null;
+                    return (
+                      <div key={i} className="border-l-4 border-blue-400 pl-3">
+                        <div className="font-medium text-sm mb-1">{question}</div>
+                        <div className="flex flex-wrap gap-4 text-sm">
+                          <span className="text-green-700">
+                            <strong>Yes:</strong> {stats.counts.Yes} ({stats.percentages.Yes}%)
+                          </span>
+                          <span className="text-red-700">
+                            <strong>No:</strong> {stats.counts.No} ({stats.percentages.No}%)
+                          </span>
+                          <span className="text-yellow-700">
+                            <strong>Maybe:</strong> {stats.counts.Maybe} ({stats.percentages.Maybe}%)
+                          </span>
+                          <span className="text-gray-600">
+                            <strong>N/A:</strong> {stats.counts['-']} ({stats.percentages['-']}%)
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto max-h-[800px]">
                 <table className="w-full border-collapse border border-gray-300">
-                  <thead>
+                  <thead className="sticky top-0 z-10">
                     <tr className="bg-gray-50">
-                      <th className="border border-gray-300 px-4 py-2 text-left">Customer Name</th>
-                      <th className="border border-gray-300 px-4 py-2 text-left">Date</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left sticky top-0 bg-gray-50">
+                        <div className="font-medium text-sm break-words">
+                          Customer Name
+                        </div>
+                      </th>
+                      <th className="border border-gray-300 px-4 py-2 text-left sticky top-0 bg-gray-50">
+                        <div className="font-medium text-sm break-words">
+                          Date
+                        </div>
+                      </th>
                       {questions.map((question, i) => (
                         <React.Fragment key={i}>
-                          <th className="border border-gray-300 px-4 py-2 text-left max-w-xs">
-                            <div className="font-medium text-sm break-words">
+                          <th className="border border-gray-300 px-2 py-2 text-left w-32 sticky top-0 bg-gray-50">
+                            <div className="font-medium text-xs break-words whitespace-normal leading-tight">
                               {question}
                             </div>
                           </th>
-                          <th className="border border-gray-300 px-4 py-2 text-left max-w-xs">
+                          <th className="border border-gray-300 px-4 py-2 text-left max-w-xs sticky top-0 bg-gray-50">
                             <div className="font-medium text-sm break-words">
                               Evidence: {question}
                             </div>
@@ -591,15 +654,6 @@ Are they interested in our new features?`}
                     ))}
                   </tbody>
                 </table>
-              </div>
-              
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-semibold mb-2">Questions Asked:</h4>
-                <ol className="list-decimal list-inside space-y-1">
-                  {questions.map((question, i) => (
-                    <li key={i} className="text-sm">{question}</li>
-                  ))}
-                </ol>
               </div>
             </CardContent>
           </Card>
