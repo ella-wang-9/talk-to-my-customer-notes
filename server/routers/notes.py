@@ -388,8 +388,16 @@ Expected Output (JSON only):
                         
                     if response_text:
                         try:
+                            # Clean response text by removing markdown code blocks
+                            clean_response = response_text
+                            if clean_response.startswith("```json"):
+                                clean_response = clean_response[7:]  # Remove ```json
+                            if clean_response.endswith("```"):
+                                clean_response = clean_response[:-3]  # Remove ```
+                            clean_response = clean_response.strip()
+                            
                             # Try to parse JSON response
-                            qa_data = json.loads(response_text)
+                            qa_data = json.loads(clean_response)
                             answers.append(QAAnswer(
                                 answer=qa_data.get("answer", "-"),
                                 evidence=qa_data.get("evidence", [])
