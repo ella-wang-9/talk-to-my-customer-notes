@@ -5,32 +5,56 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, Search, Download, Trash2, ChevronRight, HelpCircle, Copy, AlertTriangle } from "lucide-react";
 
-// Custom CSS for larger calendar popups
+// Custom CSS for much larger calendar popups (150% bigger)
 const calendarStyles = `
   .calendar-large::-webkit-calendar-picker-indicator {
-    font-size: 20px;
-    width: 24px;
-    height: 24px;
-    padding: 4px;
+    font-size: 30px;
+    width: 36px;
+    height: 36px;
+    padding: 6px;
+    cursor: pointer;
   }
   
-  /* Increase calendar popup size - Webkit browsers */
+  /* Increase calendar popup size significantly - Webkit browsers */
   .calendar-large::-webkit-datetime-edit {
-    font-size: 18px;
-    line-height: 1.5;
+    font-size: 27px;
+    line-height: 1.6;
+    padding: 8px;
   }
   
-  /* Firefox calendar styling */
+  .calendar-large::-webkit-datetime-edit-fields-wrapper {
+    padding: 8px 12px;
+  }
+  
+  .calendar-large::-webkit-datetime-edit-month-field {
+    font-size: 27px;
+    font-weight: 500;
+  }
+  
+  .calendar-large::-webkit-datetime-edit-year-field {
+    font-size: 27px;
+    font-weight: 500;
+  }
+  
+  /* Firefox calendar styling - 150% larger */
   .calendar-large {
-    font-size: 18px !important;
+    font-size: 27px !important;
+    font-weight: 500;
   }
   
-  /* General date input styling for larger calendar */
+  /* General date input styling for much larger calendar */
   input[type="month"].calendar-large {
-    font-size: 18px;
-    line-height: 1.5;
-    min-height: 48px;
-    padding: 12px;
+    font-size: 27px;
+    line-height: 1.6;
+    min-height: 72px;
+    padding: 18px;
+    font-weight: 500;
+  }
+  
+  /* Additional styles for better calendar popup appearance */
+  .calendar-large:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
   }
 `;
 
@@ -693,11 +717,12 @@ export function CustomerNotesApp() {
                     type="month"
                     value={startMonth}
                     onChange={(e) => setStartMonth(e.target.value)}
-                    className="text-lg p-3 h-12 calendar-large"
+                    className="calendar-large"
                     style={{
-                      fontSize: '18px',
-                      padding: '12px',
-                      minHeight: '48px'
+                      fontSize: '27px',
+                      padding: '18px',
+                      minHeight: '72px',
+                      fontWeight: '500'
                     }}
                   />
                 </div>
@@ -707,11 +732,12 @@ export function CustomerNotesApp() {
                     type="month"
                     value={endMonth}
                     onChange={(e) => setEndMonth(e.target.value)}
-                    className="text-lg p-3 h-12 calendar-large"
+                    className="calendar-large"
                     style={{
-                      fontSize: '18px',
-                      padding: '12px',
-                      minHeight: '48px'
+                      fontSize: '27px',
+                      padding: '18px',
+                      minHeight: '72px',
+                      fontWeight: '500'
                     }}
                   />
                 </div>
