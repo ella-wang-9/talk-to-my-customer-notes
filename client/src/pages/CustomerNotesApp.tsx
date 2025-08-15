@@ -5,56 +5,70 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, Search, Download, Trash2, ChevronRight, HelpCircle, Copy, AlertTriangle } from "lucide-react";
 
-// Custom CSS for much larger calendar popups (150% bigger)
+// Custom CSS for much larger calendar popup dropdown (150% bigger)
 const calendarStyles = `
+  /* Keep calendar icon original size */
   .calendar-large::-webkit-calendar-picker-indicator {
-    font-size: 30px;
-    width: 36px;
-    height: 36px;
-    padding: 6px;
     cursor: pointer;
   }
   
-  /* Increase calendar popup size significantly - Webkit browsers */
-  .calendar-large::-webkit-datetime-edit {
-    font-size: 27px;
-    line-height: 1.6;
-    padding: 8px;
+  /* Make the actual calendar popup 150% larger when it opens */
+  .calendar-large::-webkit-calendar-picker-panel {
+    transform: scale(1.5) !important;
+    transform-origin: top left !important;
+    font-size: 16px !important;
+    min-width: 300px !important;
+    min-height: 250px !important;
   }
   
-  .calendar-large::-webkit-datetime-edit-fields-wrapper {
-    padding: 8px 12px;
+  /* Style the calendar popup content */
+  .calendar-large::-webkit-calendar-picker-day {
+    font-size: 14px !important;
+    padding: 8px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
   }
   
-  .calendar-large::-webkit-datetime-edit-month-field {
-    font-size: 27px;
-    font-weight: 500;
+  .calendar-large::-webkit-calendar-picker-month {
+    font-size: 16px !important;
+    padding: 12px !important;
+    min-width: 80px !important;
+    min-height: 40px !important;
   }
   
-  .calendar-large::-webkit-datetime-edit-year-field {
-    font-size: 27px;
-    font-weight: 500;
+  .calendar-large::-webkit-calendar-picker-year {
+    font-size: 16px !important;
+    padding: 12px !important;
+    min-width: 60px !important;
+    min-height: 40px !important;
   }
   
-  /* Firefox calendar styling - 150% larger */
-  .calendar-large {
-    font-size: 27px !important;
-    font-weight: 500;
+  /* Navigation buttons in calendar popup */
+  .calendar-large::-webkit-calendar-picker-navigation-button {
+    font-size: 18px !important;
+    padding: 8px !important;
+    min-width: 30px !important;
+    min-height: 30px !important;
   }
   
-  /* General date input styling for much larger calendar */
+  /* Keep input field normal size */
   input[type="month"].calendar-large {
-    font-size: 27px;
-    line-height: 1.6;
-    min-height: 72px;
-    padding: 18px;
-    font-weight: 500;
+    font-size: 18px;
+    line-height: 1.5;
+    min-height: 48px;
+    padding: 12px;
   }
   
-  /* Additional styles for better calendar popup appearance */
+  /* Focus styling */
   .calendar-large:focus {
     outline: 2px solid #3b82f6;
     outline-offset: 2px;
+  }
+  
+  /* Additional fallback for browsers that support different selectors */
+  .calendar-large::-webkit-datetime-edit {
+    font-size: 18px;
+    line-height: 1.5;
   }
 `;
 
@@ -719,10 +733,9 @@ export function CustomerNotesApp() {
                     onChange={(e) => setStartMonth(e.target.value)}
                     className="calendar-large"
                     style={{
-                      fontSize: '27px',
-                      padding: '18px',
-                      minHeight: '72px',
-                      fontWeight: '500'
+                      fontSize: '18px',
+                      padding: '12px',
+                      minHeight: '48px'
                     }}
                   />
                 </div>
@@ -734,10 +747,9 @@ export function CustomerNotesApp() {
                     onChange={(e) => setEndMonth(e.target.value)}
                     className="calendar-large"
                     style={{
-                      fontSize: '27px',
-                      padding: '18px',
-                      minHeight: '72px',
-                      fontWeight: '500'
+                      fontSize: '18px',
+                      padding: '12px',
+                      minHeight: '48px'
                     }}
                   />
                 </div>
