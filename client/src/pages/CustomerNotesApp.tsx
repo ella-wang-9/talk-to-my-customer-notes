@@ -5,6 +5,35 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, Search, Download, Trash2, ChevronRight, HelpCircle, Copy, AlertTriangle } from "lucide-react";
 
+// Custom CSS for larger calendar popups
+const calendarStyles = `
+  .calendar-large::-webkit-calendar-picker-indicator {
+    font-size: 20px;
+    width: 24px;
+    height: 24px;
+    padding: 4px;
+  }
+  
+  /* Increase calendar popup size - Webkit browsers */
+  .calendar-large::-webkit-datetime-edit {
+    font-size: 18px;
+    line-height: 1.5;
+  }
+  
+  /* Firefox calendar styling */
+  .calendar-large {
+    font-size: 18px !important;
+  }
+  
+  /* General date input styling for larger calendar */
+  input[type="month"].calendar-large {
+    font-size: 18px;
+    line-height: 1.5;
+    min-height: 48px;
+    padding: 12px;
+  }
+`;
+
 // Data Models (matching backend)
 interface CustomerNote {
   CustomerName: string;
@@ -543,6 +572,8 @@ export function CustomerNotesApp() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      {/* Inject custom CSS for larger calendar popups */}
+      <style dangerouslySetInnerHTML={{ __html: calendarStyles }} />
       <div className="container mx-auto px-4 py-12 max-w-6xl">
         {/* Header */}
         <div className="text-center mb-8">
@@ -662,7 +693,12 @@ export function CustomerNotesApp() {
                     type="month"
                     value={startMonth}
                     onChange={(e) => setStartMonth(e.target.value)}
-                    className="text-lg p-3 h-12"
+                    className="text-lg p-3 h-12 calendar-large"
+                    style={{
+                      fontSize: '18px',
+                      padding: '12px',
+                      minHeight: '48px'
+                    }}
                   />
                 </div>
                 <div>
@@ -671,7 +707,12 @@ export function CustomerNotesApp() {
                     type="month"
                     value={endMonth}
                     onChange={(e) => setEndMonth(e.target.value)}
-                    className="text-lg p-3 h-12"
+                    className="text-lg p-3 h-12 calendar-large"
+                    style={{
+                      fontSize: '18px',
+                      padding: '12px',
+                      minHeight: '48px'
+                    }}
                   />
                 </div>
               </div>
