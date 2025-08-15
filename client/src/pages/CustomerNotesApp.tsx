@@ -112,6 +112,7 @@ export function CustomerNotesApp() {
   // Step 1: Input data
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
   const [availableNames, setAvailableNames] = useState<string[]>([]);
+  const [loadingPMNames, setLoadingPMNames] = useState(true);
   const [nameSearchTerm, setNameSearchTerm] = useState("");
   const [startMonth, setStartMonth] = useState("");
   const [endMonth, setEndMonth] = useState("");
@@ -131,6 +132,7 @@ export function CustomerNotesApp() {
   // Fetch PM names on component mount
   React.useEffect(() => {
     const fetchPMNames = async () => {
+      setLoadingPMNames(true);
       try {
         const response = await fetch('/api/notes/pm-names');
         if (response.ok) {
@@ -139,6 +141,8 @@ export function CustomerNotesApp() {
         }
       } catch (error) {
         console.error('Error fetching PM names:', error);
+      } finally {
+        setLoadingPMNames(false);
       }
     };
     
@@ -678,13 +682,23 @@ export function CustomerNotesApp() {
                     <input
                       type="text"
                       value={nameSearchTerm}
-                      onChange={(e) => setNameSearchTerm(e.target.value)}
-                      placeholder="Type to search Product Managers..."
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => !loadingPMNames && setNameSearchTerm(e.target.value)}
+                      placeholder={loadingPMNames ? "Loading Product Managers..." : "Type to search Product Managers..."}
+                      disabled={loadingPMNames}
+                      className={`w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        loadingPMNames ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
                     />
                     
+                    {/* Loading indicator */}
+                    {loadingPMNames && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      </div>
+                    )}
+                    
                     {/* Dropdown suggestions */}
-                    {nameSearchTerm && (
+                    {!loadingPMNames && nameSearchTerm && (
                       <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
                         {availableNames
                           .filter(name => 
@@ -718,8 +732,11 @@ export function CustomerNotesApp() {
                     )}
                   </div>
                   
-                  {selectedNames.length === 0 && (
+                  {selectedNames.length === 0 && !loadingPMNames && (
                     <p className="text-sm text-red-600">At least one Product Manager must be selected</p>
+                  )}
+                  {loadingPMNames && (
+                    <p className="text-sm text-blue-600">Loading Product Manager names...</p>
                   )}
                 </div>
               </div>
